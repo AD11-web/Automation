@@ -1,25 +1,10 @@
-const { Builder, By, Key, until } = require('selenium-webdriver');
-const chrome = require('selenium-webdriver/chrome');
-const path = require('path');
-const fs = require('fs');
-
-async function createDriver() {
-    let userProfile = path.resolve('C:/Users/ankit/AppData/Local/Google/Chrome/User Data');
-    let options = new chrome.Options();
-    options.addArguments(`--user-data-dir=${userProfile}`);
-    options.addArguments('--profile-directory=Default');
-    options.addArguments('--no-sandbox');
-    options.addArguments('--disable-dev-shm-usage');
-
-    return await new Builder()
-        .forBrowser('chrome')
-        .setChromeOptions(options)
-        .build();
-}
+const { By, Key, until } = require("selenium-webdriver");
+const path = require("path");
+const fs = require("fs");
 
 async function openWhatsAppWeb(driver) {
-    await driver.get('https://web.whatsapp.com');
-    await driver.wait(until.elementLocated(By.css('span[data-icon="search"]')), 30000);
+    await driver.get("https://web.whatsapp.com");
+    await driver.wait(until.elementLocated(By.css('span[data-icon="search"]')), 60000);
     console.log("Search icon located successfully.");
 
     let searchIcon = await driver.findElement(By.css('span[data-icon="search"]'));
@@ -43,14 +28,14 @@ async function getChatElements(driver) {
 async function isValidChatElement(element) {
     try {
         let elementText = await element.getText();
-        return !(elementText.includes('See more chat history') || elementText.includes('Get WhatsApp for Windows'));
+        return !(elementText.includes("See more chat history") || elementText.includes("Get WhatsApp for Windows"));
     } catch (error) {
-        console.error('Error checking chat element validity:', error);
+        console.error("Error checking chat element validity:", error);
         return false;
     }
 }
 
-async function processChat(driver, chatElement, wordIndex, chatIndex) {
+async function processChat(driver, chatElement, wordIndex, chatIndex, screenshotsDir) {
     try {
         let actions = driver.actions({ async: true });
         await driver.executeScript("arguments[0].scrollIntoView(true);", chatElement);
@@ -58,25 +43,25 @@ async function processChat(driver, chatElement, wordIndex, chatIndex) {
         await actions.click().perform();
         console.log(`Clicked on valid chat #${chatIndex + 1} containing '${wordIndex + 1}'.`);
 
-        await driver.sleep(3000);
+        await driver.sleep(5000);
 
-        // Ensure screenshots directory exists
-        const screenshotsDir = path.resolve(__dirname, 'screenshots');
-        if (!fs.existsSync(screenshotsDir)) {
-            fs.mkdirSync(screenshotsDir);
-        }
+        // // Ensure screenshots directory exists
+        // const screenshotsDir = path.resolve(__dirname, "screenshots");
+        // if (!fs.existsSync(screenshotsDir)) {
+        //     fs.mkdirSync(screenshotsDir);
+        // }
 
         let screenshotPath = path.join(screenshotsDir, `chat_${wordIndex + 1}.${chatIndex + 1}.png`);
-        await driver.takeScreenshot().then(image => {
-            fs.writeFileSync(screenshotPath, image, 'base64');
+        await driver.takeScreenshot().then((image) => {
+            fs.writeFileSync(screenshotPath, image, "base64");
             console.log(`Screenshot saved: ${screenshotPath}`);
         });
 
-        await driver.sleep(2000);
+        await driver.sleep(5000);
     } catch (error) {
         if (error.name === "StaleElementReferenceError") {
             console.log(`StaleElementReferenceError encountered for chat #${chatIndex + 1}. Re-locating element...`);
-            throw error;  
+            throw error;
         } else {
             console.error(`Unexpected error while processing chat #${chatIndex + 1}:`, error);
         }
@@ -86,11 +71,11 @@ async function processChat(driver, chatElement, wordIndex, chatIndex) {
 async function refreshPage(driver) {
     console.log(`Refreshing the page for the next search...`);
     await driver.navigate().refresh();
-    await driver.wait(until.elementLocated(By.css('span[data-icon="search"]')), 30000);
+    await driver.wait(until.elementLocated(By.css('span[data-icon="search"]')), 50000);
     console.log("Search icon located successfully after refresh.");
 }
 
-async function handleChats(driver, word) {
+async function handleChats(driver, word, screenshotsDir) {
     await searchForWord(driver, word);
     let chatElements = await getChatElements(driver);
     console.log(`Found ${chatElements.length} chats with the word '${word}'.`);
@@ -99,7 +84,7 @@ async function handleChats(driver, word) {
         let chatElement = chatElements[chatIndex];
         console.log(`Processing chat #${chatIndex + 1} with word '${word}'...`);
         if (await isValidChatElement(chatElement)) {
-            await processChat(driver, chatElement, word, chatIndex);
+            await processChat(driver, chatElement, word, chatIndex, screenshotsDir);
         } else {
             console.log(`Skipped invalid element for chat #${chatIndex + 1} with word '${word}'.`);
         }
@@ -109,7 +94,6 @@ async function handleChats(driver, word) {
 }
 
 module.exports = {
-    createDriver,
     openWhatsAppWeb,
-    handleChats
+    handleChats,
 };
